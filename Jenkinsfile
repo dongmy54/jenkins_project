@@ -70,6 +70,7 @@ pipeline {
                         rm -f ${IMAGE_TAR}
                     """
                     
+                    // 这里的deploy-key代表的是 jenkins全局配置时中的Id
                     sshagent(['deploy-key']) {
                         serverList.each { server ->
                             echo "Deploying to server: ${server}"
