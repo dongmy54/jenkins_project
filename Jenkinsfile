@@ -13,6 +13,10 @@ pipeline {
         DOCKER_IMAGE = 'my-go-app'
         DOCKER_TAG = 'latest'
         DOCKER_REGISTRY = 'docker.unsee.tech'
+        // 直接定义服务器列表
+        DEV_SERVERS = '117.72.75.178'
+        TEST_SERVERS = '192.168.2.101,192.168.2.102,192.168.2.103'
+        PROD_SERVERS = '10.0.1.101,10.0.1.102,10.0.1.103,10.0.1.104'
     }
     
     stages {
@@ -25,14 +29,19 @@ pipeline {
         stage('Build and Deploy') {
             steps {
                 script {
-                    // 读取服务器配置
-                    // def servers = readJSON file: 'servers.json'
-                    // def targetServers = servers.environments[params.DEPLOY_ENV].servers
-                    // 读取服务器配置
-                    // 读取服务器配置
-                    def jsonContent = readFile(file: 'servers.json')
-                    def serversJson = new groovy.json.JsonSlurperClassic().parseText(jsonContent)
-                    def targetServers = serversJson.environments[params.DEPLOY_ENV].servers
+                    // 根据环境选择服务器列表
+                    def serverList = []
+                    switch(params.DEPLOY_ENV) {
+                        case 'dev':
+                            serverList = env.DEV_SERVERS.split(',')
+                            break
+                        case 'test':
+                            serverList = env.TEST_SERVERS.split(',')
+                            break
+                        case 'prod':
+                            serverList = env.PROD_SERVERS.split(',')
+                            break
+                    }
                     
                     // 构建和部署命令
                     def deployCmd = """
@@ -48,7 +57,7 @@ pipeline {
                     
                     // 使用 SSH Agent 批量部署到所有服务器
                     sshagent(['deploy-key']) {
-                        targetServers.each { server ->
+                        serverList.each { server ->
                             echo "Deploying to server: ${server}"
                             sh "ssh -o StrictHostKeyChecking=no ${server} '${deployCmd}'"
                         }
