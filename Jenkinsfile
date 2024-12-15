@@ -18,8 +18,8 @@ pipeline {
         stage('Build and Deploy') {
             steps {
                 script {
-                    // 使用 Docker 多阶段构建
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    // 构建 Docker 镜像
+                    sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} ."
                     
                     // 停止并删除旧容器（如果存在）
                     sh """
@@ -32,7 +32,7 @@ pipeline {
                         docker run -d \
                             --name ${DOCKER_IMAGE} \
                             -p 9000:9000 \
-                            ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
                     """
                 }
             }
