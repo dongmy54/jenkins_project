@@ -1,10 +1,17 @@
 pipeline {
     agent any
     
+    parameters {
+        choice(
+            name: 'DEPLOY_ENV',
+            choices: ['dev', 'test', 'prod'],
+            description: '选择部署环境'
+        )
+    }
+    
     environment {
         DOCKER_IMAGE = 'my-go-app'
         DOCKER_TAG = 'latest'
-        // 如果使用私有仓库，替换为你的 Docker Registry 地址
         DOCKER_REGISTRY = 'docker.unsee.tech'
     }
     
@@ -18,22 +25,29 @@ pipeline {
         stage('Build and Deploy') {
             steps {
                 script {
-                    // 构建 Docker 镜像
-                    sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                    // 读取服务器配置
+                    def servers = readJSON file: 'servers.json'
+                    def targetServers = servers.environments[params.DEPLOY_ENV].servers
                     
-                    // 停止并删除旧容器（如果存在）
-                    sh """
-                        docker stop ${DOCKER_IMAGE} || true
-                        docker rm ${DOCKER_IMAGE} || true
-                    """
-                    
-                    // 运行新容器
-                    sh """
+                    // 构建和部署命令
+                    def deployCmd = """
+                        cd ${env.WORKSPACE} && \
+                        docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} . && \
+                        docker stop ${DOCKER_IMAGE} || true && \
+                        docker rm ${DOCKER_IMAGE} || true && \
                         docker run -d \
                             --name ${DOCKER_IMAGE} \
                             -p 9000:9000 \
                             ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
                     """
+                    
+                    // 使用 SSH Agent 批量部署到所有服务器
+                    sshagent(['deploy-key']) {
+                        targetServers.each { server ->
+                            echo "Deploying to server: ${server}"
+                            sh "ssh -o StrictHostKeyChecking=no ${server} '${deployCmd}'"
+                        }
+                    }
                 }
             }
         }
