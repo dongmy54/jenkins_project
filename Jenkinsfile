@@ -12,13 +12,14 @@ pipeline {
     environment {
         DOCKER_IMAGE = 'dmy-go-app'
         DOCKER_TAG = 'latest'
-        DOCKER_REGISTRY = 'docker.unsee.tech'
         // 直接定义服务器列表
         DEV_SERVERS = '117.72.75.178'
         TEST_SERVERS = '192.168.2.101,192.168.2.102,192.168.2.103'
         PROD_SERVERS = '10.0.1.101,10.0.1.102,10.0.1.103,10.0.1.104'
         // SSH 用户名改为 root 默认情况是 jenkins
         DEPLOY_USER = 'root'
+        // 镜像文件名
+        IMAGE_TAR = 'dmy-go-app.tar'
     }
     
     stages {
@@ -32,9 +33,9 @@ pipeline {
             steps {
                 script {
                     // 构建 Docker 镜像
-                    sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} ."
-                    // 推送到 Registry
-                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                    // 保存镜像为文件
+                    sh "docker save ${DOCKER_IMAGE}:${DOCKER_TAG} -o ${IMAGE_TAR}"
                 }
             }
         }
@@ -58,20 +59,23 @@ pipeline {
                     
                     // 部署命令
                     def deployCmd = """
-                        docker pull ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} && \
+                        docker load -i ${IMAGE_TAR} && \
                         docker stop ${DOCKER_IMAGE} || true && \
                         docker rm -f ${DOCKER_IMAGE} || true && \
                         docker run -d \
                             --name ${DOCKER_IMAGE} \
                             --restart unless-stopped \
                             -p 9000:9000 \
-                            ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                            ${DOCKER_IMAGE}:${DOCKER_TAG} && \
+                        rm -f ${IMAGE_TAR}
                     """
                     
-                    // 使用 SSH Agent 批量部署到所有服务器
                     sshagent(['deploy-key']) {
                         serverList.each { server ->
                             echo "Deploying to server: ${server}"
+                            // 传输 Docker 镜像文件
+                            sh "scp -o StrictHostKeyChecking=no ${IMAGE_TAR} ${env.DEPLOY_USER}@${server}:~/"
+                            // 加载镜像并运行容器
                             sh "ssh -o StrictHostKeyChecking=no ${env.DEPLOY_USER}@${server} '${deployCmd}'"
                         }
                     }
@@ -81,6 +85,10 @@ pipeline {
     }
     
     post {
+        always {
+            // 清理本地镜像文件
+            sh "rm -f ${IMAGE_TAR}"
+        }
         failure {
             echo 'Pipeline failed! Please check the logs.'
         }
