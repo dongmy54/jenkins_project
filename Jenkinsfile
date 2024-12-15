@@ -29,7 +29,9 @@ pipeline {
                     // def servers = readJSON file: 'servers.json'
                     // def targetServers = servers.environments[params.DEPLOY_ENV].servers
                     // 读取服务器配置
-                    def serversJson = new groovy.json.JsonSlurper().parse(new File("${env.WORKSPACE}/servers.json"))
+                    // 读取服务器配置
+                    def jsonContent = readFile(file: 'servers.json')
+                    def serversJson = new groovy.json.JsonSlurperClassic().parseText(jsonContent)
                     def targetServers = serversJson.environments[params.DEPLOY_ENV].servers
                     
                     // 构建和部署命令
