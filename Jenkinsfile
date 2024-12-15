@@ -28,7 +28,18 @@ pipeline {
             }
         }
         
-        stage('Build and Deploy') {
+        stage('Build Image') {
+            steps {
+                script {
+                    // 构建 Docker 镜像
+                    sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                    // 推送到 Registry
+                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
+                }
+            }
+        }
+        
+        stage('Deploy') {
             steps {
                 script {
                     // 根据环境选择服务器列表
@@ -45,14 +56,14 @@ pipeline {
                             break
                     }
                     
-                    // 构建和部署命令
+                    // 部署命令
                     def deployCmd = """
-                        cd ${env.WORKSPACE} && \
-                        docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} . && \
+                        docker pull ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} && \
                         docker stop ${DOCKER_IMAGE} || true && \
-                        docker rm ${DOCKER_IMAGE} || true && \
+                        docker rm -f ${DOCKER_IMAGE} || true && \
                         docker run -d \
                             --name ${DOCKER_IMAGE} \
+                            --restart unless-stopped \
                             -p 9000:9000 \
                             ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
                     """
