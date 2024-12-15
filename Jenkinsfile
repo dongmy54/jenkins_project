@@ -17,6 +17,8 @@ pipeline {
         DEV_SERVERS = '117.72.75.178'
         TEST_SERVERS = '192.168.2.101,192.168.2.102,192.168.2.103'
         PROD_SERVERS = '10.0.1.101,10.0.1.102,10.0.1.103,10.0.1.104'
+        // SSH 用户名改为 root 默认情况是 jenkins
+        DEPLOY_USER = 'root'
     }
     
     stages {
@@ -59,7 +61,7 @@ pipeline {
                     sshagent(['deploy-key']) {
                         serverList.each { server ->
                             echo "Deploying to server: ${server}"
-                            sh "ssh -o StrictHostKeyChecking=no ${server} '${deployCmd}'"
+                            sh "ssh -o StrictHostKeyChecking=no ${env.DEPLOY_USER}@${server} '${deployCmd}'"
                         }
                     }
                 }
