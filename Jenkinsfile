@@ -26,8 +26,11 @@ pipeline {
             steps {
                 script {
                     // 读取服务器配置
-                    def servers = readJSON file: 'servers.json'
-                    def targetServers = servers.environments[params.DEPLOY_ENV].servers
+                    // def servers = readJSON file: 'servers.json'
+                    // def targetServers = servers.environments[params.DEPLOY_ENV].servers
+                    // 读取服务器配置
+                    def serversJson = new groovy.json.JsonSlurper().parse(new File("${env.WORKSPACE}/servers.json"))
+                    def targetServers = serversJson.environments[params.DEPLOY_ENV].servers
                     
                     // 构建和部署命令
                     def deployCmd = """
