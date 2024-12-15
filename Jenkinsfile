@@ -10,7 +10,7 @@ pipeline {
     }
     
     environment {
-        DOCKER_IMAGE = 'my-go-app'
+        DOCKER_IMAGE = 'dmy-go-app'
         DOCKER_TAG = 'latest'
         DOCKER_REGISTRY = 'docker.unsee.tech'
         // 直接定义服务器列表
